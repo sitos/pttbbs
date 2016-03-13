@@ -1234,7 +1234,7 @@ mail_am(void)
     // send mail to account manager
     int             i;
     fileheader_t    mhdr;
-    char            *fpath;
+    char            *fpath = NULL;
     char            _mfpath[PATHLEN];
     int             oldstat = currstat;
     char            save_title[STRLEN];
