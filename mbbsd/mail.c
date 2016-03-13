@@ -1194,6 +1194,99 @@ mail_all(void)
     return 0;
 }
 
+struct Vector *
+get_account_manager(void)
+{
+    static struct Vector namelist;
+    static int initialized = 0;
+    if (!initialized) {
+        Vector_init(&namelist, IDLEN+1);
+        initialized = 1;
+
+        FILE *fp;
+        if ( (fp = fopen("etc/permrpt.log", "r")) != NULL) {
+            int enable = 0;
+            char line[STRLEN+1];
+            while(fgets(line, STRLEN + 1, fp)) {
+                if(strstr(line, "PERM_ACCTREG 帳號審核組") == line)
+                    enable = 1;
+                if(strstr(line, "total ") == line && strstr(line, " users"))
+                    enable = 0;
+
+                char userid[IDLEN+1];
+                sscanf(line, " %s", userid);
+                Vector_add(&namelist, userid);
+            }
+
+            fclose(fp);
+        }
+    }
+
+    return &namelist;
+}
+
+
+int
+mail_am(void)
+{
+    // send mail to account manager
+    int             i;
+    fileheader_t    mhdr;
+    char            *fpath;
+    char            _mfpath[PATHLEN];
+    int             oldstat = currstat;
+    char            save_title[STRLEN];
+
+    char tmp_title[STRLEN-20];
+    getdata(2, 0, "主題:", tmp_title, sizeof(tmp_title), DOECHO);
+    strlcpy(save_title, tmp_title, sizeof(save_title));
+
+    if (!fpath)
+        fpath = _mfpath;
+
+    setutmpmode(SMAIL);
+
+    struct Vector *namelist = get_account_manager();
+
+    for (i = 0; i < Vector_length(namelist); i++) {
+        const char *userid = Vector_get(namelist, i);
+
+        sethomepath(fpath, userid);
+        stampfile(fpath, &mhdr);
+        strlcpy(mhdr.owner, cuser.userid, sizeof(mhdr.owner));
+
+        if (vedit2(fpath, YEA, save_title,
+                    EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
+        {
+            unlink(fpath);
+            setutmpmode(oldstat);
+            clear();
+            continue;
+        }
+
+        strlcpy(mhdr.title, save_title, sizeof(mhdr.title));
+        sethomedir(fpath, userid);
+        if (append_record_forward(fpath, &mhdr, sizeof(mhdr), userid) == -1)
+        {
+            unlink(fpath);
+            setutmpmode(oldstat);
+            clear();
+            continue;
+        }
+
+        sendalert(userid, ALERT_NEW_MAIL);
+        setutmpmode(oldstat);
+
+        hold_mail(fpath, userid, save_title);
+
+        clear();
+    }
+
+    pressanykey();
+    return FULLUPDATE;
+}
+
+
 int
 mail_mbox(void)
 {
