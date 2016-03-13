@@ -1235,9 +1235,10 @@ mail_am(void)
 {
     // send mail to account manager
     int             i;
-    fileheader_t    mhdr;
-    char            *fpath = NULL;
-    char            _mfpath[PATHLEN];
+    fileheader_t    mymail;
+    char            fpath[TTLEN];
+    char            genbuf[PATHLEN];
+    char            buf[IDLEN+1];
     int             oldstat = currstat;
     char            save_title[STRLEN];
 
@@ -1245,39 +1246,41 @@ mail_am(void)
     getdata(2, 0, "¥DÃD:", tmp_title, sizeof(tmp_title), DOECHO);
     strlcpy(save_title, tmp_title, sizeof(save_title));
 
-    if (!fpath)
-        fpath = _mfpath;
-
     setutmpmode(SMAIL);
 
     struct Vector *namelist = get_account_manager();
 
+    setuserfile(fpath, fn_notes);
+
+    if (vedit2(fpath, YEA, save_title,
+                EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
+    {
+        unlink(fpath);
+        setutmpmode(oldstat);
+        vmsg(msg_cancel);
+        return DIRCHANGED;
+    }
+
     for (i = 0; i < Vector_length(namelist); i++) {
         const char *userid = Vector_get(namelist, i);
+        searchuser(userid, buf);
+        sethomepath(genbuf, buf);
+        stampfile(genbuf, &mymail);
+        unlink(genbuf);
+        Copy(fpath, genbuf);
 
-        sethomepath(fpath, userid);
-        stampfile(fpath, &mhdr);
-        strlcpy(mhdr.owner, cuser.userid, sizeof(mhdr.owner));
-
-        if (vedit2(fpath, YEA, save_title,
-                    EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
-        {
-            unlink(fpath);
-            continue;
-        }
-
-        strlcpy(mhdr.title, save_title, sizeof(mhdr.title));
-        sethomedir(fpath, userid);
-        if (append_record_forward(fpath, &mhdr, sizeof(mhdr), userid) == -1)
-        {
-            unlink(fpath);
-            continue;
-        }
-
-        sendalert(userid, ALERT_NEW_MAIL);
-
-        hold_mail(fpath, userid, save_title);
+        strlcpy(mymail.owner, cuser.userid, sizeof(mymail.owner));
+        strlcpy(mymail.title, save_title, sizeof(mymail.title));
+        mymail.filemode |= FILE_MULTI;
+        sethomedir(genbuf, buf);
+ 
+        if (append_record_forward(genbuf, &mymail, sizeof(mymail), buf) == -1)
+            vmsg(err_uid);
+        sendalert(buf, ALERT_NEW_MAIL);
     }
+
+    hold_mail(fpath, NULL, save_title);
+    unlink(fpath);
 
     setutmpmode(oldstat);
     clear();
