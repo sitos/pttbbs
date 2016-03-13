@@ -1213,9 +1213,11 @@ get_account_manager(void)
                 if(strstr(line, "total ") == line && strstr(line, " users"))
                     enable = 0;
 
-                char userid[IDLEN+1];
-                sscanf(line, " %s", userid);
-                Vector_add(&namelist, userid);
+                if (enable == 1) {
+                    char userid[IDLEN+1];
+                    sscanf(line, " %s", userid);
+                    Vector_add(&namelist, userid);
+                }
             }
 
             fclose(fp);
