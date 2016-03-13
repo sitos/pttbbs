@@ -1194,6 +1194,104 @@ mail_all(void)
     return 0;
 }
 
+struct Vector *
+get_account_manager(void)
+{
+    static struct Vector namelist;
+    static int initialized = 0;
+    if (!initialized) {
+        Vector_init(&namelist, IDLEN+1);
+
+        FILE *fp;
+        if ( (fp = fopen("etc/mail_sysop", "r")) != NULL) {
+            char line[STRLEN+1];
+            while(fgets(line, STRLEN + 1, fp)) {
+                char userid[IDLEN+1];
+                userid[0] = 0;
+
+                sscanf(line, "%s\n", userid);
+                if(strlen(userid) > 0)
+                {
+                    Vector_add(&namelist, userid);
+                    initialized = 1;
+                }
+            }
+
+            fclose(fp);
+        }
+    }
+
+    return &namelist;
+}
+
+
+int
+mail_am(void)
+{
+    // send mail to account manager
+    int             i;
+    fileheader_t    mymail;
+    char            fpath[TTLEN];
+    char            genbuf[PATHLEN];
+    char            buf[IDLEN+1];
+    int             oldstat = currstat;
+    char            save_title[STRLEN];
+
+    struct Vector *namelist = get_account_manager();
+
+    if (Vector_length(namelist) == 0)
+    {
+        vmsg("尚未初始化完成，請稍後再試。");
+        return DIRCHANGED;
+    }
+
+    char tmp_title[STRLEN-20];
+    getdata(2, 0, "主題:", tmp_title, sizeof(tmp_title), DOECHO);
+    strlcpy(save_title, tmp_title, sizeof(save_title));
+
+    setutmpmode(SMAIL);
+
+    setuserfile(fpath, fn_notes);
+
+    if (vedit2(fpath, YEA, save_title,
+                EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
+    {
+        unlink(fpath);
+        setutmpmode(oldstat);
+        vmsg(msg_cancel);
+        return DIRCHANGED;
+    }
+
+    for (i = 0; i < Vector_length(namelist); i++) {
+        const char *userid = Vector_get(namelist, i);
+        searchuser(userid, buf);
+        sethomepath(genbuf, buf);
+        stampfile(genbuf, &mymail);
+        unlink(genbuf);
+        Copy(fpath, genbuf);
+
+        strlcpy(mymail.owner, cuser.userid, sizeof(mymail.owner));
+        strlcpy(mymail.title, save_title, sizeof(mymail.title));
+        mymail.filemode |= FILE_MULTI;
+        sethomedir(genbuf, buf);
+
+        if (append_record_forward(genbuf, &mymail, sizeof(mymail), buf) == -1)
+            vmsg(err_uid);
+        sendalert(buf, ALERT_NEW_MAIL);
+    }
+
+    hold_mail(fpath, NULL, save_title);
+    unlink(fpath);
+
+    setutmpmode(oldstat);
+    clear();
+
+    pressanykey();
+
+    return FULLUPDATE;
+}
+
+
 int
 mail_mbox(void)
 {
