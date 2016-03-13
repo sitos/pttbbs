@@ -1208,8 +1208,10 @@ get_account_manager(void)
             int enable = 0;
             char line[STRLEN+1];
             while(fgets(line, STRLEN + 1, fp)) {
-                if(strstr(line, "PERM_ACCTREG 帳號審核組") == line)
+                if(strstr(line, "PERM_ACCTREG 帳號審核組") == line) {
                     enable = 1;
+                    continue;
+                }
                 if(strstr(line, "total ") == line && strstr(line, " users"))
                     enable = 0;
 
@@ -1253,14 +1255,9 @@ mail_am(void)
     for (i = 0; i < Vector_length(namelist); i++) {
         const char *userid = Vector_get(namelist, i);
 
-        //debug
-        vmsg(userid);
-
         sethomepath(fpath, userid);
         stampfile(fpath, &mhdr);
         strlcpy(mhdr.owner, cuser.userid, sizeof(mhdr.owner));
-
-        vmsg("temp1");
 
         if (vedit2(fpath, YEA, save_title,
                     EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
@@ -1269,8 +1266,6 @@ mail_am(void)
             continue;
         }
 
-        vmsg("temp2");
-
         strlcpy(mhdr.title, save_title, sizeof(mhdr.title));
         sethomedir(fpath, userid);
         if (append_record_forward(fpath, &mhdr, sizeof(mhdr), userid) == -1)
@@ -1278,8 +1273,6 @@ mail_am(void)
             unlink(fpath);
             continue;
         }
-
-        vmsg("temp3");
 
         sendalert(userid, ALERT_NEW_MAIL);
 
