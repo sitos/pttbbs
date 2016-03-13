@@ -1261,8 +1261,6 @@ mail_am(void)
                     EDITFLAG_ALLOWTITLE | EDITFLAG_KIND_SENDMAIL) == EDIT_ABORTED)
         {
             unlink(fpath);
-            setutmpmode(oldstat);
-            clear();
             continue;
         }
 
@@ -1271,20 +1269,19 @@ mail_am(void)
         if (append_record_forward(fpath, &mhdr, sizeof(mhdr), userid) == -1)
         {
             unlink(fpath);
-            setutmpmode(oldstat);
-            clear();
             continue;
         }
 
         sendalert(userid, ALERT_NEW_MAIL);
-        setutmpmode(oldstat);
 
         hold_mail(fpath, userid, save_title);
-
-        clear();
     }
 
+    setutmpmode(oldstat);
+    clear();
+
     pressanykey();
+
     return FULLUPDATE;
 }
 
