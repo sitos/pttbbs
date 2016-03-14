@@ -1243,13 +1243,19 @@ mail_am(void)
     int             oldstat = currstat;
     char            save_title[STRLEN];
 
+    struct Vector *namelist = get_account_manager();
+
+    if (Vector_length(namelist) == 0)
+    {
+        vmsg("尚未初始化完成，請稍後再試。");
+        return DIRCHANGED;
+    }
+
     char tmp_title[STRLEN-20];
     getdata(2, 0, "主題:", tmp_title, sizeof(tmp_title), DOECHO);
     strlcpy(save_title, tmp_title, sizeof(save_title));
 
     setutmpmode(SMAIL);
-
-    struct Vector *namelist = get_account_manager();
 
     setuserfile(fpath, fn_notes);
 
