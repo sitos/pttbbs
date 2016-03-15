@@ -1194,34 +1194,28 @@ mail_all(void)
     return 0;
 }
 
-struct Vector *
-get_account_manager(void)
+void
+get_account_manager(struct Vector *namelist)
 {
-    static struct Vector namelist;
-    static int initialized = 0;
-    if (!initialized) {
-        Vector_init(&namelist, IDLEN+1);
+    Vector_init(namelist, IDLEN+1);
 
-        FILE *fp;
-        if ( (fp = fopen("etc/mail_sysop", "r")) != NULL) {
-            char line[STRLEN+1];
-            while(fgets(line, STRLEN + 1, fp)) {
+    FILE *fp;
+    if ( (fp = fopen("etc/mail_sysop", "r")) != NULL) {
+        char line[STRLEN+1];
+        while(fgets(line, STRLEN + 1, fp)) {
+            char *ptr = strstr(line, "\n");
+            if(ptr && ptr - line <= IDLEN)
+            {
                 char userid[IDLEN+1];
-                userid[0] = 0;
+                strlcpy(userid, line, ptr - line);
 
-                sscanf(line, "%s\n", userid);
                 if(strlen(userid) > 0)
-                {
-                    Vector_add(&namelist, userid);
-                    initialized = 1;
-                }
+                    Vector_add(namelist, userid);
             }
-
-            fclose(fp);
         }
+        fclose(fp);
     }
-
-    return &namelist;
+    return;
 }
 
 
@@ -1237,9 +1231,10 @@ mail_am(void)
     int             oldstat = currstat;
     char            save_title[STRLEN];
 
-    struct Vector *namelist = get_account_manager();
+    struct Vector namelist;
+    get_account_manager(&namelist);
 
-    if (Vector_length(namelist) == 0)
+    if (Vector_length(&namelist) == 0)
     {
         vmsg("尚未初始化完成，請稍後再試。");
         return DIRCHANGED;
@@ -1262,8 +1257,8 @@ mail_am(void)
         return DIRCHANGED;
     }
 
-    for (i = 0; i < Vector_length(namelist); i++) {
-        const char *userid = Vector_get(namelist, i);
+    for (i = 0; i < Vector_length(&namelist); i++) {
+        const char *userid = Vector_get(&namelist, i);
         searchuser(userid, buf);
         sethomepath(genbuf, buf);
         stampfile(genbuf, &mymail);
