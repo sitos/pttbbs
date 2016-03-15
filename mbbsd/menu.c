@@ -674,7 +674,7 @@ static const commands_t maillist[] = {
     {built_mail_index,
 	PERM_LOGINOK,		"Savemail      重建信箱索引"},
     {mail_all, PERM_SYSOP,      "All           寄信給所有使用者"},
-    {mail_am, PERM_READMAIL,    "Account       寄信給帳號站長"},
+    {mail_am, 0,                "Acct Mngr     寄信給帳號站長"},
     {NULL, 0, NULL}
 };
 

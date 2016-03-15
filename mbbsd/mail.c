@@ -1203,22 +1203,16 @@ get_account_manager(void)
         Vector_init(&namelist, IDLEN+1);
 
         FILE *fp;
-        if ( (fp = fopen("etc/permrpt.log", "r")) != NULL) {
-            int enable = 0;
+        if ( (fp = fopen("etc/mail_sysop", "r")) != NULL) {
             char line[STRLEN+1];
             while(fgets(line, STRLEN + 1, fp)) {
-                if(strstr(line, "PERM_ACCTREG ±b¸¹¼f®Ö²Õ") == line) {
-                    enable = 1;
-                    continue;
-                }
-                if(strstr(line, "total ") == line && strstr(line, " users"))
-                    enable = 0;
+                char userid[IDLEN+1];
+                userid[0] = 0;
 
-                if (enable == 1) {
-                    char userid[IDLEN+1];
-                    sscanf(line, " %s", userid);
+                sscanf(line, "%s\n", userid);
+                if(strlen(userid) > 0)
+                {
                     Vector_add(&namelist, userid);
-
                     initialized = 1;
                 }
             }
