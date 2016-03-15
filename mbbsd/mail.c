@@ -1260,7 +1260,8 @@ mail_am(void)
 
     for (i = 0; i < Vector_length(&namelist); i++) {
         const char *userid = Vector_get(&namelist, i);
-        searchuser(userid, buf);
+        if(!searchuser(userid, buf))
+            continue;
         sethomepath(genbuf, buf);
         stampfile(genbuf, &mymail);
         unlink(genbuf);
