@@ -1207,7 +1207,8 @@ get_account_manager(struct Vector *namelist)
             if(ptr && ptr - line <= IDLEN)
             {
                 char userid[IDLEN+1];
-                strlcpy(userid, line, ptr - line);
+                *ptr = 0;
+                strlcpy(userid, line, sizeof(userid));
 
                 if(strlen(userid) > 0)
                     Vector_add(namelist, userid);
