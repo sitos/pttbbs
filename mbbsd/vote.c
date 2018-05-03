@@ -6,6 +6,7 @@
 #define MAX_VOTE_NR	(20)
 #define MAX_VOTE_PAGE	(5)
 #define ITEM_PER_PAGE	(30)
+#define LOG_INTERVAL	(100)
 
 static const char * const STR_bv_control = "control";	/* щ布ら戳 匡兜 */
 static const char * const STR_bv_desc    = "desc";	/* щ布ヘ */
@@ -16,6 +17,7 @@ static const char * const STR_bv_limited = "limited";	/* ╬щ布 */
 static const char * const STR_bv_limits  = "limits";	/* щ布戈 */
 static const char * const STR_bv_title   = "vtitle";
 static const char * const STR_bv_lock    = "vlock";
+static const char * const STR_bv_logs    = "vlogs";     /* щ布魁 */
 
 static const char * const STR_bv_results = "results";
 
@@ -30,6 +32,7 @@ typedef struct {
     char limits  [sizeof("limitsXX\0")  ];
     char title   [sizeof("vtitleXX\0")  ];
     char lock    [sizeof("vlockXX\0")   ];
+    char logs    [sizeof("vlogsXX\0")   ];
 } vote_buffer_t;
 
 static void
@@ -45,6 +48,7 @@ votebuf_init(vote_buffer_t *vbuf, int n)
     snprintf(vbuf->limits,  sizeof(vbuf->limits),  "%s%d", STR_bv_limits,  n);
     snprintf(vbuf->title,   sizeof(vbuf->title),   "%s%d", STR_bv_title,   n);
     snprintf(vbuf->lock,    sizeof(vbuf->lock),    "%s%d", STR_bv_lock,    n);
+    snprintf(vbuf->logs,    sizeof(vbuf->logs),    "%s%d", STR_bv_logs,    n);
 }
 
 static int
@@ -262,6 +266,13 @@ b_result_one(const vote_buffer_t *vbuf, boardheader_t * fh, int *total)
     unlink(buf);
 
     fprintf(tfp, "%s\n』 羆布计 = %d 布\n\n", msg_separator, *total);
+
+    // Report: logs part
+    fprintf(tfp, "%s\n』 щ布魁\n\n", msg_separator);
+    fprintf(tfp, ANSI_COLOR(1;36) "ㄏノ嘿   , 丁                    , ゅ彻计 , 计 , ㄓ方" ANSI_RESET "\n");
+    setbfile(buf, bname, vbuf->logs);
+    b_suckinfile(tfp, buf);
+    unlink(buf);
 
     // End of the report
     fclose(tfp);
@@ -559,7 +570,7 @@ vote_maintain(const char *bname)
 		const char *filename[] = {
 		    STR_bv_ballots, STR_bv_control, STR_bv_desc, STR_bv_desc,
 		    STR_bv_flags, STR_bv_comments, STR_bv_limited, STR_bv_limits,
-		    STR_bv_title, NULL
+		    STR_bv_title, STR_bv_logs, NULL
 		};
 		for (j = 0; filename[j] != NULL; j++) {
 		    snprintf(buf2, sizeof(buf2), "%s%d", filename[j], i);
@@ -918,7 +929,7 @@ user_vote_one(const vote_buffer_t *vbuf, const char *bname)
 		outs("礚猭щ布詏\n");
 	    else {
 		struct stat     statb;
-		char            buf[3], mycomments[3][74], b_comments[80];
+		char            buf[3], mycomments[3][74], b_comments[80], b_logs[80];
 
 		for (i = 0; i < 3; i++)
 		    strlcpy(mycomments[i], "\n", sizeof(mycomments[i]));
@@ -966,6 +977,60 @@ user_vote_one(const vote_buffer_t *vbuf, const char *bname)
 		    }
 		}
 		move(b_lines - 1, 0);
+
+		/* log this vote */
+		setbfile(b_logs, bname, vbuf->logs);
+		FILE *flog = fopen(b_logs, "a");
+		if (flog) {
+		    char b_flags[80], b_ballots[80], b_control[80];
+		    int num_vote = 0;
+
+		    fprintf(flog, ANSI_COLOR(1;36) "%-12s , %-23s , %-6d , %-6d , %-15s" ANSI_RESET "\n", cuser.userid, Cdate(&now), cuser.numposts, cuser.numlogindays, cuser.lasthost);
+
+		    setbfile(b_flags, bname, vbuf->flags);
+		    num_vote = b_nonzeroNum(b_flags);
+
+		    if (num_vote % LOG_INTERVAL == 0) {
+			FILE *cfp;
+			char log_inbuf[ANSILINELEN];
+			int *log_counts;
+			int log_total;
+			int log_junk;
+
+			setbfile(b_control, bname, vbuf->control);
+			cfp = fopen(b_control, "r");
+			assert(cfp);
+			fgets(log_inbuf, sizeof(log_inbuf), cfp);
+			sscanf(log_inbuf, "%hd,%hd", &item_num, &log_junk);
+			fgets(log_inbuf, sizeof(log_inbuf), cfp);
+
+			if (item_num > 0) {
+			    log_counts = (int *)malloc(item_num * sizeof(int));
+
+			    setbfile(b_ballots, bname, vbuf->ballots);
+			    b_count(b_ballots, log_counts, item_num, &log_total);
+			    fprintf(flog, "\n");
+			    fprintf(flog, "Τ %6d щ布                                                      \n", num_vote);
+			    fprintf(flog, "    匡    兜                                   羆布计  眔布瞯  眔布だガ \n");
+			    for (log_junk = 0; log_junk < item_num; log_junk++) {
+				fgets(log_inbuf, sizeof(log_inbuf), cfp);
+				chomp(log_inbuf);
+				fprintf(flog, "    %-42s %3d 布 %6.2f%%  %6.2f%%  \n", log_inbuf + 3, log_counts[log_junk],
+					(float)(log_counts[log_junk] * 100) / (float)(num_vote),
+					(float)(log_counts[log_junk] * 100) / (float)(log_total));
+			    }
+			    fprintf(flog, "\n");
+			    free(log_counts);
+			}
+
+			if (cfp) {
+			    fclose(cfp);
+			}
+		    }
+
+		    fclose(flog);
+		}
+
 		outs("ЧΘщ布\n");
 	    }
 	}
