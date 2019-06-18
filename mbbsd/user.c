@@ -663,9 +663,9 @@ uinfo_query(const char *orig_uid, int adminmode, int unum)
 
     ans = vans(adminmode ?
     "(1)改資料(2)密碼(3)權限(4)砍帳(5)改ID(6)寵物(7)審判(8)退文(M)信箱 [0]結束 " :
-    "請選擇 (1)修改資料 (2)設定密碼 (C)個人化設定 [0]結束 ");
+    "請選擇 (1)修改資料 (2)設定密碼 (C)個人化設定 (M) 填寫信箱 [0]結束 ");
 
-    if (ans > '2' && ans != 'c' && !adminmode)
+    if (ans > '2' && ans != 'c' && ans != 'm' && !adminmode)
 	ans = '0';
 
     if (ans == '1' || ans == '3' || ans == 'm') {
@@ -695,10 +695,22 @@ uinfo_query(const char *orig_uid, int adminmode, int unum)
 	return;
 
     case 'm':
+        if (!(x.userlevel & PERM_LOGINOK && x.userlevel & PERM_POST)) {
+            clear();
+            vmsg("本功能僅開放給已通過認證的帳號");
+            break;
+        }
+
+        if (strcmp(x.email, "x")) {
+            clear();
+            vmsg("已填寫過 Email ，不需重覆填寫");
+            break;
+        }
+
 	while (1) {
 	    getdata_str(y, 0,
                     adminmode ? "E-Mail (站長變更不需認證): " :
-                                "電子信箱 [變動要重新認證]：",
+                                "電子信箱：",
                     buf, sizeof(x.email), DOECHO, x.email);
 
 	    strip_blank(buf, buf);
@@ -707,6 +719,7 @@ uinfo_query(const char *orig_uid, int adminmode, int unum)
 	    if (!buf[0] || strcasecmp(buf, "x") == 0)
 		break;
 
+            /* 不需檢查 email 是否符合白名單或使用的次數
 	    if (!check_regmail(buf))
 		continue;
 
@@ -725,6 +738,8 @@ uinfo_query(const char *orig_uid, int adminmode, int unum)
 		continue;
 	    }
 #endif
+            */
+
 	    // valid mail.
 	    break;
 	}
@@ -1199,10 +1214,13 @@ uinfo_query(const char *orig_uid, int adminmode, int unum)
 		 orig_uid, x.userid, cuser.userid);
 	post_msg(BN_SECURITY, title, title, "[系統安全局]");
     }
+
+    /* 修改信箱不需重新認證
     if (mail_changed && !adminmode) {
 	// wait registration.
 	x.userlevel &= ~(PERM_LOGINOK | PERM_POST);
     }
+    */
 
     if (tokill) {
 	kick_all(x.userid);
