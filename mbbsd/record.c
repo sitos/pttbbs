@@ -347,7 +347,7 @@ delete_file_content2(const char *direct, const fileheader_t *fh,
                      const char *backup_direct,
                      char *backup_path, size_t sz_backup_path,
                      const char *reason) {
-    char fpath[PATHLEN];
+    char fpath[PATHLEN], notation[PATHLEN];
     fileheader_t backup = { {0} };
     int backup_failed = DELETE_FILE_CONTENT_SUCCESS;
 
@@ -374,6 +374,9 @@ delete_file_content2(const char *direct, const fileheader_t *fh,
     setdirpath(fpath, direct, fh->filename);
     if (!dashf(fpath))
         return DELETE_FILE_CONTENT_BACKUP_FAILED;
+
+    snprintf(notation, PATHLEN, "%s.n", fpath);
+    unlink(notation);
 
     // FIXME some announcements were made by sym-links, especial for those
     // in mail. we should ignore them.

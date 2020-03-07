@@ -2348,6 +2348,7 @@ static int
 read_post(int ent, fileheader_t * fhdr, const char *direct)
 {
     char            genbuf[PATHLEN];
+    char            notation[PATHLEN];
     int             more_result;
 
     if (fhdr->owner[0] == '-' || fhdr->filename[0] == 'L' || !fhdr->filename[0])
@@ -2403,6 +2404,11 @@ read_post(int ent, fileheader_t * fhdr, const char *direct)
         more(FN_FILE_SUSPICIOUS_DESC, YEA);
         clear();
     }
+
+    snprintf(notation, PATHLEN, "%s.n", genbuf);
+    more(notation, YEA);
+    clear();
+
     more_result = more(genbuf, YEA);
 
     LOG_IF(LOG_CONF_CRAWLER, {
@@ -3731,10 +3737,39 @@ mark_suspicious(int ent, fileheader_t * fhdr, const char *direct)
                      "%s 將 #%s (%s) 標記待查證", cuser.userid, aidc, currboard);
 
         post_msg(BN_SECURITY, buf, "請注意標記的合法性", "[待證標記]");
-   }
+    }
 
+    return change_post_mode(ent, fhdr, direct, FILE_SUSPICIOUS);
+}
 
-   return change_post_mode(ent, fhdr, direct, FILE_SUSPICIOUS);
+static int
+edit_notation(int ent, fileheader_t * fhdr, const char *direct)
+{
+    char genbuf[PATHLEN], fpath[PATHLEN];
+
+    if (!HasUserPerm(PERM_SYSSUPERSUBOP)) {
+        vmsg("此操作需要群組長權限。");
+        return DONOTHING;
+    }
+
+    setdirpath(genbuf, direct, fhdr->filename);
+    snprintf(fpath, PATHLEN, "%s.n", genbuf);
+    veditfile(fpath);
+
+    aidu_t aidu = 0;
+    aidu = fn2aidu((char *)fhdr->filename);
+    if (aidu > 0) {
+        char aidc[10];
+        char buf[256];
+        aidu2aidc(aidc, aidu);
+        snprintf(buf, sizeof(buf),
+                 "%s 對 #%s (%s) 進行加註", cuser.userid, aidc, currboard);
+        post_file(BN_SECURITY, buf, fpath, "[加註]");
+    }
+
+    if (get_num_records(fpath, 1) == 0) {
+        unlink(fpath);
+    }
 }
 
 static int
@@ -4556,7 +4591,7 @@ const onekey_t read_comms[] = {
     { 0, b_moved_to_config }, // 'J'
     { 0, NULL }, // 'K'
     { 1, solve_post }, // 'L'
-    { 0, NULL }, // 'M'
+    { 1, edit_notation }, // 'M'
     { 0, NULL }, // 'N'
     { 0, NULL }, // 'O'
     { 0, NULL }, // 'P'
